@@ -1,0 +1,6 @@
+/node_modules
+/lostandfound.db
+/uploads/*.tmp
+/uploads/*.bak
+.DS_Store
+.env
