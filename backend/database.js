@@ -51,11 +51,19 @@ function initDb() {
       brand TEXT,
       model_no TEXT,
       colour TEXT,
-      identifications TEXT
+      identifications TEXT,
+      reported_by TEXT,
+      claimed_by TEXT,
+      claimed_at TEXT,
+      is_admin_item TEXT,
+      status TEXT DEFAULT 'available',
+      resale_price TEXT,
+      resale_date TEXT,
+      created_at TEXT
     )`);
 
     // Ensure new columns exist (for older DBs) - add if missing
-  const requiredCols = ['lost_date','location','category','brand','model_no','colour','identifications','reported_by'];
+  const requiredCols = ['lost_date','location','category','brand','model_no','colour','identifications','reported_by','claimed_by','claimed_at','is_admin_item','status','resale_price','resale_date','created_at'];
     db.all("PRAGMA table_info(items)", (err, cols) => {
       if (err) return console.error('PRAGMA error', err);
       const existing = cols.map(c => c.name);
@@ -69,6 +77,40 @@ function initDb() {
       });
     });
 
+    // Create claims table for student claim requests
+    db.run(`CREATE TABLE IF NOT EXISTS claims (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER,
+      student TEXT,
+      message TEXT,
+      status TEXT DEFAULT 'pending',
+      admin TEXT,
+      decision_note TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    )`);
+
+    // Create notifications table
+    db.run(`CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT,
+      message TEXT,
+      type TEXT,
+      payload TEXT,
+      read INTEGER DEFAULT 0,
+      created_at TEXT
+    )`);
+
+    // Create security contacts table
+    db.run(`CREATE TABLE IF NOT EXISTS security_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      designation TEXT,
+      location TEXT,
+      phone TEXT,
+      created_at TEXT
+    )`);
+
     // Check if table has rows and seed if empty
     db.get('SELECT COUNT(*) as cnt FROM items', (err, row) => {
       if (err) {
@@ -76,10 +118,16 @@ function initDb() {
         return;
       }
       if (row && row.cnt === 0) {
-  const stmt = db.prepare('INSERT INTO items (name, description, image_path, lost_date, location, category, brand, model_no, colour, identifications, reported_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-  stmt.run('Black Wallet', 'Leather wallet lost near cafeteria.', '/uploads/wallet.svg', null, 'Cafeteria', 'wallet', 'Generic', null, 'black', null, null);
-  stmt.run('Smartphone', 'Blue smartphone with a cracked screen.', '/uploads/phone.svg', null, 'Library', 'phone', 'Acme', 'X100', 'blue', null, null);
-  stmt.run('Keychain', 'Bunch of keys with a red tag.', '/uploads/keys.svg', null, 'Main Gate', 'keys', 'KeyCorp', null, 'silver', null, null);
+  const stmt = db.prepare('INSERT INTO items (name, description, image_path, lost_date, location, category, brand, model_no, colour, identifications, reported_by, is_admin_item, status, resale_price, resale_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const now = new Date().toISOString();
+  stmt.run('Black Wallet', 'Leather wallet lost near cafeteria.', '/uploads/wallet.svg', null, 'Cafeteria', 'wallet', 'Generic', null, 'black', null, null, null, 'available', null, null, now);
+  stmt.run('Smartphone', 'Blue smartphone with a cracked screen.', '/uploads/phone.svg', null, 'Library', 'phone', 'Acme', 'X100', 'blue', null, null, null, 'available', null, null, now);
+  stmt.run('Keychain', 'Bunch of keys with a red tag.', '/uploads/keys.svg', null, 'Main Gate', 'keys', 'KeyCorp', null, 'silver', null, null, 'available', null, null, now);
+  stmt.run('Gold Watch', 'Elegant gold watch.', '/uploads/keys.svg', null, 'Cafeteria', 'watch', 'Generic', null, 'gold', null, null, null, 'available', null, null, now);
+  stmt.run('Headphones', 'Wireless headphones.', '/uploads/keys.svg', null, 'Library', 'headphones and headset', 'Sony', null, 'black', null, null, null, 'available', null, null, now);
+  stmt.run('Charger', 'Phone charger cable.', '/uploads/keys.svg', null, 'Main Gate', 'charger', 'Generic', null, 'white', null, null, null, 'available', null, null, now);
+  stmt.run('Water Bottle', 'Blue water bottle.', '/uploads/keys.svg', null, 'Cafeteria', 'bottle', 'Generic', null, 'blue', null, null, null, 'available', null, null, now);
+  stmt.run('Calculator', 'Scientific calculator.', '/uploads/keys.svg', null, 'Library', 'calculator', 'Casio', null, 'black', null, null, null, 'available', null, null, now);
         stmt.finalize();
         console.log('Seeded database with sample items.');
       }

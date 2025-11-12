@@ -45,20 +45,44 @@ export default function AddItemForm({ onAdded, submitLabel = 'Add Item', attachR
         // ignore
       }
     }
+    // mark admin-added items explicitly so backend/UI can treat them separately
+    if (!attachReporter) {
+      try { fd.append('is_admin_item', '1') } catch (e) {}
+    }
 
     setLoading(true)
     fetch('http://localhost:5000/api/items', {
       method: 'POST',
       body: fd
     })
-      .then(r => r.json())
+      .then(async r => {
+        const text = await r.text()
+        let data
+        try { data = text ? JSON.parse(text) : null } catch (e) { data = { error: text } }
+        if (!r.ok) {
+          // show server-provided error if available
+          const msg = (data && data.error) ? data.error : `Server returned ${r.status}`
+          throw new Error(msg)
+        }
+        return data
+      })
       .then(data => {
         setLoading(false)
         onAdded && onAdded(data)
+
+        // Server will create notifications for matches; dispatch an event so Navbar reloads immediately.
+        try {
+          try { window.dispatchEvent(new Event('notifications:updated')) } catch (e) {}
+          // If backend returned match_count in the response, show immediate feedback to the user
+          if (data && data.match_count && Number(data.match_count) > 0) {
+            try { alert(`${data.match_count} possible match(es) found — check the bell (🔔) to request a claim.`) } catch (e) {}
+          }
+        } catch (e) { console.error('post-submit update failed', e) }
       })
       .catch(err => {
         setLoading(false)
-        alert('Upload failed')
+        // show a clearer error message
+        alert('Upload failed: ' + (err && err.message ? err.message : 'network error'))
         console.error(err)
       })
   }
